@@ -1,5 +1,6 @@
 import StatusCodes from "http-status-codes";
 import { MongoClient } from "mongodb";
+import { ObjectId } from 'mongodb';
 
 import {
   HTTPError,
@@ -130,14 +131,19 @@ const getUserChainStats = async (queryParams) => {
   }
 };
 
-const softDelete = async (userId, requestBody) => {
+const softDelete = async (userId) => {
   try {
-    const requestData = JSON.parse(requestBody);
+    // console.log("Received userId:", userId);
+    const userIdObjectId = new ObjectId(userId); 
+    // console.log("Converted userId to ObjectId:", userIdObjectId);
 
     const client = await DBConn();
     const db = client.db("10D");
-    const userToFind = await db.collection("users").findOne({ _id: userId });
+    const userToFind = await db.collection("users").findOne({ _id: userIdObjectId });
+    // console.log("User found:", userToFind);
+
     if (!userToFind) {
+      console.log("User not found");
       return {
         statusCode: StatusCodes.NOT_FOUND,
         body: JSON.stringify({
@@ -145,11 +151,13 @@ const softDelete = async (userId, requestBody) => {
         })
       };
     }
+
     // Perform soft deleting
     userToFind.isDeleted = true;
-    await db.collection("users").updateOne({ _id: userId }, { $set: { isDeleted: true } });
+    await db.collection("users").updateOne({ _id: userIdObjectId }, { $set: { isDeleted: true } });
+    console.log("User soft-deleted successfully");
     await client.close();
-
+    
     return {
       statusCode: StatusCodes.OK,
       body: JSON.stringify({
@@ -166,4 +174,5 @@ const softDelete = async (userId, requestBody) => {
     };
   }
 };
+
 
