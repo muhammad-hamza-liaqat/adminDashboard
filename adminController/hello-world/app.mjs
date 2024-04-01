@@ -23,6 +23,8 @@ export const lambdaHandler = async (event) => {
           return await getAllUser(queryParams);
         } else if (path === "/getUserChainStats") {
           return await getUserChainStats(queryParams);
+        } else if (path === "/searchUser") {
+          return await searchUsers(queryParams);
         }
       case "PATCH":
         if (path.startsWith("/softDelete/") && pathParams && pathParams.id) {
@@ -228,3 +230,65 @@ const updateUserStatus = async (userId, userStatus) => {
     };
   }
 };
+
+const searchUsers = async (queryParams) => {
+  const client = await DBConn();
+  const db = client.db("10D");
+  try {
+    const page = Number(queryParams.page) || 1;
+    const limit = Number(queryParams.limit) || 10;
+    const search = queryParams.search;
+    const skip = (page - 1) * limit;
+    // debugging
+    console.log("received page", page);
+    console.log("received limit", limit); 
+    console.log("received search", search); 
+    const pipeline = [
+      {
+        $lookup: {
+          from: "userwallets",
+          localField: "userWallet",
+          foreignField: "_id",
+          as: "userWallet",
+        },
+      },
+      { $unwind: "$userWallet" },
+      {
+        $match: {
+          $or: [
+            { firstName: { $regex: new RegExp(search, "i") } },
+            { lastName: { $regex: new RegExp(search, "i") } },
+            { email: { $regex: new RegExp(search, "i") } },
+            { userName: { $regex: new RegExp(search, "i") } },
+            { totalNode: { $regex: new RegExp(search, "i") } },
+            { "userWallet.userBalance": { $eq: parseInt(search) } },
+          ],
+        },
+      },
+      { $skip: skip },
+      { $limit: limit },
+    ];
+
+    const users = await db.collection("users").aggregate(pipeline).toArray(); 
+    const totalUsers = await db.collection("users").countDocuments();
+    console.log("users=>", users); // debugging
+    return {
+      statusCode: StatusCodes.OK,
+      body: JSON.stringify({
+        message: "Success",
+        users,
+        totalUsers,
+      }),
+    };
+  } catch (error) {
+    console.error("An error occurred:", error);
+    return {
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      body: JSON.stringify({
+        message: "Something went wrong!",
+        error: error.message,
+      }),
+    };
+  }
+};
+

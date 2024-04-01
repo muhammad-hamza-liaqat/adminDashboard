@@ -43,6 +43,11 @@ Resources:
           Properties:
             Path: /updateStatus/{id}/{status}
             Method: Patch
+        searchUsers:
+          Type: Api
+          Properties:
+            Path: /searchUser
+            Method: get
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
