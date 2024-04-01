@@ -1,13 +1,7 @@
 import StatusCodes from "http-status-codes";
 import { MongoClient } from "mongodb";
 import { ObjectId } from "mongodb";
-
-import {
-  HTTPError,
-  HTTPResponse,
-  DBConn,
-  catchError,
-} from "./utils/helper.mjs";
+import { DBConn } from "./utils/helper.mjs";
 
 export const lambdaHandler = async (event) => {
   try {
@@ -42,48 +36,71 @@ export const lambdaHandler = async (event) => {
 
 const searchNodes = async (queryParams) => {
   try {
-    const client = await DBConn();
-    const db = client.db("10D");
-    const usersCollection = db.collection("users");
-    const totalUsersCount = await usersCollection.countDocuments();
-
+    const searchField = queryParams.searchField;
     const page = Number(queryParams.page) || 1;
     const limit = Number(queryParams.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const users = await usersCollection
-      .find({})
-      .skip(skip)
-      .limit(limit)
-      .toArray();
+    const client = await DBConn();
+    const db = client.db("10D");
+    const chainNames = await db.collection("chains").distinct("name");
 
-    const userArr = users.map((user) => ({
-      userId: user._id,
-      userName: user.userName,
-      totalNodes: user.totalNode,
-      outReach: user.outReach || 0,
-      userBalance: user.userWallet ? user.userWallet.userBalance : 0,
-    }));
+    if (!chainNames.length) {
+      return {
+        statusCode: StatusCodes.NOT_FOUND,
+        body: JSON.stringify({ message: "Chains not found" }),
+      };
+    }
+
+    const pipeline = chainNames.flatMap((chainName) => [
+      {
+        $unionWith: { coll: "treeNodes" + chainName },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "user",
+          foreignField: "_id",
+          as: "userData",
+        },
+      },
+      {
+        $unwind: "$userData",
+      },
+      {
+        $match: {
+          $or: [
+            { "userData.userName": { $regex: new RegExp(searchField, "i") } },
+            { nodeId: parseInt(searchField) },
+            { totalEarning: { $eq: parseInt(searchField) } },
+            { totalMembers: { $eq: parseInt(searchField) } },
+          ],
+        },
+      },
+      { $skip: skip },
+      { $limit: limit },
+    ]);
+
+    const nodes = await db.collection(chainNames[0]).aggregate(pipeline).toArray();
 
     await client.close();
 
+    if (!nodes.length) {
+      return {
+        statusCode: StatusCodes.NOT_FOUND,
+        body: JSON.stringify({ message: "Nodes not found" }),
+      };
+    }
+
     return {
-      statusCode: 200,
-      body: JSON.stringify({
-        message: "Success",
-        users: userArr,
-        totalUsers: totalUsersCount,
-      }),
+      statusCode: StatusCodes.OK,
+      body: JSON.stringify({ message: "Nodes fetched successfully", nodes }),
     };
   } catch (error) {
     console.error("An error occurred:", error);
     return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: "Something Went Wrong",
-        error: error.message,
-      }),
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      body: JSON.stringify({ message: "Something went wrong", error: error.message }),
     };
   }
 };
-
