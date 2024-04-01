@@ -130,41 +130,40 @@ const getUserChainStats = async (queryParams) => {
   }
 };
 
-const softDelete = async (userId, requestBody)=>{
+const softDelete = async (userId, requestBody) => {
   try {
     const requestData = JSON.parse(requestBody);
 
     const client = await DBConn();
     const db = client.db("10D");
-    const userToFind = await db.collection("users").findOne({_id: userId});
-    if (!userToFind){
+    const userToFind = await db.collection("users").findOne({ _id: userId });
+    if (!userToFind) {
       return {
         statusCode: StatusCodes.NOT_FOUND,
         body: JSON.stringify({
-          message: "user not found against this userID"
+          message: "User not found against this userID"
         })
-      }
-      // performing soft deleting
-      user.isDeleted = true;
-      await db.collection("users").updateOne({_id: userId}, {$set: {isDeleted: true}});
-      await client.close();
-
-      return {
-        statusCode: StatusCodes.OK,
-        body: JSON.stringify({
-          message: "user soft-deleteing action performed successfully!"
-        })
-      }
+      };
     }
+    // Perform soft deleting
+    userToFind.isDeleted = true;
+    await db.collection("users").updateOne({ _id: userId }, { $set: { isDeleted: true } });
+    await client.close();
 
+    return {
+      statusCode: StatusCodes.OK,
+      body: JSON.stringify({
+        message: "User soft-deleting action performed successfully!"
+      })
+    };
   } catch (error) {
-  console.log("an error occured", error);
-  return {
-    statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
-    body: JSON.stringify({
-      message: "something went wrong!"
-    })
-  } 
+    console.error("An error occurred:", error);
+    return {
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      body: JSON.stringify({
+        message: "Something went wrong!"
+      })
+    };
   }
+};
 
-}
