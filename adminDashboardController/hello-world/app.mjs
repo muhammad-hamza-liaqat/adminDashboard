@@ -35,14 +35,15 @@ export const lambdaHandler = async (event) => {
 };
 
 const searchNodes = async (queryParams) => {
+  const client = await DBConn();
+  const db = client.db("10D");
   try {
+    
     const searchField = queryParams.searchField;
     const page = Number(queryParams.page) || 1;
     const limit = Number(queryParams.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const client = await DBConn();
-    const db = client.db("10D");
     const chainNames = await db.collection("chains").distinct("name");
 
     if (!chainNames.length) {
