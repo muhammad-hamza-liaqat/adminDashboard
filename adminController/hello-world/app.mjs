@@ -1,6 +1,6 @@
 import StatusCodes from "http-status-codes";
 import { MongoClient } from "mongodb";
-import { ObjectId } from 'mongodb';
+import { ObjectId } from "mongodb";
 
 import {
   HTTPError,
@@ -21,12 +21,19 @@ export const lambdaHandler = async (event) => {
       case "GET":
         if (path === "/getAllUser") {
           return await getAllUser(queryParams);
-        } else if (path === "/getUserChainStats"){
+        } else if (path === "/getUserChainStats") {
           return await getUserChainStats(queryParams);
         }
       case "PATCH":
-        if (path.startsWith("/softDelete/")&& pathParams && pathParams.id){
-          return await softDelete(pathParams.id, body)
+        if (path.startsWith("/softDelete/") && pathParams && pathParams.id) {
+          return await softDelete(pathParams.id, body);
+        } else if (
+          path.startsWith("/updateStatus/") &&
+          pathParams &&
+          pathParams.id &&
+          pathParams.status
+        ) {
+          return await updateUserStatus(pathParams.id, pathParams.status);
         }
       default:
         return {
@@ -134,12 +141,14 @@ const getUserChainStats = async (queryParams) => {
 const softDelete = async (userId) => {
   try {
     // console.log("Received userId:", userId);
-    const userIdObjectId = new ObjectId(userId); 
+    const userIdObjectId = new ObjectId(userId);
     // console.log("Converted userId to ObjectId:", userIdObjectId);
 
     const client = await DBConn();
     const db = client.db("10D");
-    const userToFind = await db.collection("users").findOne({ _id: userIdObjectId });
+    const userToFind = await db
+      .collection("users")
+      .findOne({ _id: userIdObjectId });
     // console.log("User found:", userToFind);
 
     if (!userToFind) {
@@ -147,32 +156,75 @@ const softDelete = async (userId) => {
       return {
         statusCode: StatusCodes.NOT_FOUND,
         body: JSON.stringify({
-          message: "User not found against this userID"
-        })
+          message: "User not found against this userID",
+        }),
       };
     }
 
     // Perform soft deleting
     userToFind.isDeleted = true;
-    await db.collection("users").updateOne({ _id: userIdObjectId }, { $set: { isDeleted: true } });
+    await db
+      .collection("users")
+      .updateOne({ _id: userIdObjectId }, { $set: { isDeleted: true } });
     console.log("User soft-deleted successfully");
     await client.close();
-    
+
     return {
       statusCode: StatusCodes.OK,
       body: JSON.stringify({
-        message: "User soft-deleting action performed successfully!"
-      })
+        message: "User soft-deleting action performed successfully!",
+      }),
     };
   } catch (error) {
     console.error("An error occurred:", error);
     return {
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
       body: JSON.stringify({
-        message: "Something went wrong!"
-      })
+        message: "Something went wrong!",
+      }),
     };
   }
 };
 
+const updateUserStatus = async (userId, userStatus) => {
+  // console.log("received userID", userId);
+  // console.log("received userStatus", userStatus);
 
+  try {
+    const userIdObjectId = new ObjectId(userId);
+    const client = await DBConn();
+    const db = client.db("10D");
+    const userToUpdate = await db
+      .collection("users")
+      .findOne({ _id: userIdObjectId });
+    if (!userToUpdate) {
+      return {
+        statusCode: StatusCodes.NOT_FOUND,
+        body: JSON.stringify({
+          message: " user not found against this _id",
+        }),
+      };
+    }
+    // update the status
+    userToUpdate.status = userStatus;
+    await db
+      .collection("users")
+      .updateOne({ _id: userIdObjectId }, { $set: { status: userStatus } });
+
+    await client.close();
+    return {
+      statusCode: StatusCodes.OK,
+      body: JSON.stringify({
+        message: `user with ${userId}'s status has been updated`,
+      }),
+    };
+  } catch (error) {
+    console.log("an error occured", error);
+    return {
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      body: JSON.stringify({
+        message: "something went wrong!",
+      }),
+    };
+  }
+};

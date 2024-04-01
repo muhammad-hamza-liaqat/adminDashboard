@@ -38,6 +38,11 @@ Resources:
           Properties:
             Path: /softDelete/{id}
             Method: Patch
+        updateStatus:
+          Type: Api
+          Properties:
+            Path: /updateStatus/{id}/{status}
+            Method: Patch
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
