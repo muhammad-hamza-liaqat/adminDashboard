@@ -20,6 +20,8 @@ export const lambdaHandler = async (event) => {
       case "GET":
         if (path === "/getAllUser") {
           return await getAllUser(queryParams);
+        } else if (path === "/getUserChainStats"){
+          return await getUserChainStats(queryParams);
         }
       default:
         return {

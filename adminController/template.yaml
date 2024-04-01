@@ -29,6 +29,7 @@ Resources:
             Path: /getAllUser
             Method: get
         getUserChainStats:
+          Type: Api
           Properties:
             Path: /getUserChainStats
             Method: get
