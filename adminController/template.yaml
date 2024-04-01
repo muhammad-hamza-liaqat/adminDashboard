@@ -33,6 +33,11 @@ Resources:
           Properties:
             Path: /getUserChainStats
             Method: get
+        softDelete:
+          Type: Api
+          Properties:
+            Path: /softDelete/{id}
+            Mathod: Patch
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function

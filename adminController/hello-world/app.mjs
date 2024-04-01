@@ -23,6 +23,10 @@ export const lambdaHandler = async (event) => {
         } else if (path === "/getUserChainStats"){
           return await getUserChainStats(queryParams);
         }
+      case "PATCH":
+        if (path.startsWith("/softDelete/")&& pathParams && pathParams.id){
+          return await softDelete(pathParams.id, body)
+        }
       default:
         return {
           statusCode: StatusCodes.METHOD_NOT_ALLOWED,
@@ -125,3 +129,42 @@ const getUserChainStats = async (queryParams) => {
     };
   }
 };
+
+const softDelete = async (userId, requestBody)=>{
+  try {
+    const requestData = JSON.parse(requestBody);
+
+    const client = await DBConn();
+    const db = client.db("10D");
+    const userToFind = await db.collection("users").findOne({_id: userId});
+    if (!userToFind){
+      return {
+        statusCode: StatusCodes.NOT_FOUND,
+        body: JSON.stringify({
+          message: "user not found against this userID"
+        })
+      }
+      // performing soft deleting
+      user.isDeleted = true;
+      await db.collection("users").updateOne({_id: userId}, {$set: {isDeleted: true}});
+      await client.close();
+
+      return {
+        statusCode: StatusCodes.OK,
+        body: JSON.stringify({
+          message: "user soft-deleteing action performed successfully!"
+        })
+      }
+    }
+
+  } catch (error) {
+  console.log("an error occured", error);
+  return {
+    statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    body: JSON.stringify({
+      message: "something went wrong!"
+    })
+  } 
+  }
+
+}
