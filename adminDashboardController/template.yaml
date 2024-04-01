@@ -28,26 +28,7 @@ Resources:
           Properties:
             Path: /searchNodes
             Method: get
-        getUserChainStats:
-          Type: Api
-          Properties:
-            Path: /getUserChainStats
-            Method: get
-        softDelete:
-          Type: Api
-          Properties:
-            Path: /softDelete/{id}
-            Method: Patch
-        updateStatus:
-          Type: Api
-          Properties:
-            Path: /updateStatus/{id}/{status}
-            Method: Patch
-        searchUsers:
-          Type: Api
-          Properties:
-            Path: /searchUser
-            Method: get
+
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
