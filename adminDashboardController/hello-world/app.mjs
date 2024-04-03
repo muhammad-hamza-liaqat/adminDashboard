@@ -1,14 +1,14 @@
 import StatusCodes from "http-status-codes";
 import { MongoClient } from "mongodb";
 import { ObjectId } from "mongodb";
-import { DBConn } from "./utils/helper.mjs";
+import { DBConn, HTTPError, HTTPResponse } from "./utils/helper.mjs";
 
 export const lambdaHandler = async (event) => {
   try {
     const method = event.httpMethod;
     const path = event.path;
-    const body = event.body;
     const queryParams = event.queryStringParameters || {};
+    const body = JSON.parse(event.body || "{}");
 
     switch (method) {
       case "GET":
@@ -222,36 +222,43 @@ const updateNodeStatus = async (body) => {
   const db = client.db("10D");
 
   try {
-    const { chainId, nodeId } = body;
+    const chainId = body.chainId;
+    const nodeId = body.nodeId;
+    console.log("chainID received:", chainId);
+    console.log("nodeID received:", nodeId);
+
     const chain = await db
       .collection("chains")
       .findOne({ _id: new ObjectId(chainId) });
     if (!chain) {
+      let error = new HTTPError("Chain not found!", StatusCodes.CONFLICT);
       return {
         statusCode: StatusCodes.CONFLICT,
-        body: JSON.stringify({ message: "Chain not found!" }),
+        body: JSON.stringify({ error }),
       };
     }
-
     const nodeCollectionName = `treeNodes${chain.name}`;
+    
+    const query = ObjectId.isValid(nodeId) ? { _id: new ObjectId(nodeId) } : { nodeId: nodeId };
+    
     const node = await db
       .collection(nodeCollectionName)
-      .findOne({ _id: new ObjectId(nodeId) });
+      .findOne(query);
+      
     if (!node) {
+      let error = new HTTPError("Node not found!", StatusCodes.NOT_FOUND);
       return {
         statusCode: StatusCodes.NOT_FOUND,
-        body: JSON.stringify({ message: "Node not found!" }),
+        body: JSON.stringify({ error }),
       };
     }
-
     const updatedNode = await db
       .collection(nodeCollectionName)
       .findOneAndUpdate(
-        { _id: new ObjectId(nodeId) },
+        query,
         { $set: { isDeleted: true } },
         { returnOriginal: false }
       );
-
     client.close();
 
     return {
@@ -259,7 +266,7 @@ const updateNodeStatus = async (body) => {
       body: JSON.stringify({ message: "Success", updatedNode }),
     };
   } catch (error) {
-    console.error("an error occured", error);
+    console.error("an error occurred", error);
     return {
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
       body: JSON.stringify({
