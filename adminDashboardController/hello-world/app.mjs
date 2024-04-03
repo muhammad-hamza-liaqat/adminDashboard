@@ -15,7 +15,9 @@ export const lambdaHandler = async (event) => {
       case "GET":
         if (path === "/searchNodes") {
           return await searchNodes(queryParams);
-        } 
+        } else if (path === "/adminAnalytics"){
+          return await adminAnalytics(queryParams)
+        }
 
       default:
         return {
@@ -38,7 +40,6 @@ const searchNodes = async (queryParams) => {
   const client = await DBConn();
   const db = client.db("10D");
   try {
-    
     const searchField = queryParams.searchField;
     const page = Number(queryParams.page) || 1;
     const limit = Number(queryParams.limit) || 10;
@@ -82,7 +83,10 @@ const searchNodes = async (queryParams) => {
       { $limit: limit },
     ]);
 
-    const nodes = await db.collection(chainNames[0]).aggregate(pipeline).toArray();
+    const nodes = await db
+      .collection(chainNames[0])
+      .aggregate(pipeline)
+      .toArray();
 
     await client.close();
 
@@ -101,7 +105,58 @@ const searchNodes = async (queryParams) => {
     console.error("An error occurred:", error);
     return {
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
-      body: JSON.stringify({ message: "Something went wrong", error: error.message }),
+      body: JSON.stringify({
+        message: "Something went wrong",
+        error: error.message,
+      }),
+    };
+  }
+};
+
+const adminAnalytics = async (queryParams) => {
+  const client = await DBConn();
+  const db = client.db("10D");
+  try {
+
+    const chains = await db.collection("chains").find({}).toArray();
+    let totalChainInvestment = 0;
+    let totalNodesCount = 0;
+    const totalChainsCount = await db.collection("chains").countDocuments();
+
+    for (const chain of chains) {
+      const collectionName = `treeNodes${chain.name}`;
+      const rootNode = await db.collection(collectionName).findOne(
+        { _id: chain?.rootNode },
+        {
+          projection: { totalMembers: 1 },
+        }
+      );
+      if (rootNode) {
+        const chainInvestment = rootNode.totalMembers * chain.seedAmount;
+        totalChainInvestment += chainInvestment;
+        totalNodesCount += rootNode.totalMembers;
+      }
+    }
+
+    client.close();
+
+    return {
+      statusCode: StatusCodes.OK,
+      body: JSON.stringify({
+        message: "Success",
+        totalChainInvestment: totalChainInvestment,
+        totalChains: totalChainsCount,
+        totalNodes: totalNodesCount,
+      }),
+    };
+  } catch (error) {
+    console.error("An error occured:", error);
+    return {
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      body: JSON.stringify({
+        message: "somthing went wrong",
+        error: error.message,
+      }),
     };
   }
 };

@@ -19,7 +19,7 @@ Resources:
       Runtime: nodejs20.x
       Environment:
         Variables:
-          MONGODB_URL: mongodb+srv://hamza:hamza12345@cluster0.i5jzrrb.mongodb.net/10D
+          MONGODB_URL: mongodb+srv://munirraza0047:3XLqYSVU6ygnbtlc@socketchat.enjbje9.mongodb.net/10D
       Architectures:
         - x86_64
       Events:
@@ -27,6 +27,11 @@ Resources:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
           Properties:
             Path: /searchNodes
+            Method: get
+        adminAnalytics:
+          Type: Api
+          Properties:
+            Path: /adminAnalytics
             Method: get
 
 
