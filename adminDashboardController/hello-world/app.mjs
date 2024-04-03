@@ -7,7 +7,6 @@ export const lambdaHandler = async (event) => {
   try {
     const method = event.httpMethod;
     const path = event.path;
-    const pathParams = event.pathParameters;
     const body = event.body;
     const queryParams = event.queryStringParameters || {};
 
@@ -20,7 +19,12 @@ export const lambdaHandler = async (event) => {
         } else if (path === "/getNodeListing") {
           return await getNodeListing(queryParams);
         }
-
+        break;
+      case "PATCH":
+        if (path === "/updateNodeStatus") {
+          return await updateNodeStatus(body);
+        }
+        break;
       default:
         return {
           statusCode: StatusCodes.METHOD_NOT_ALLOWED,
@@ -170,7 +174,6 @@ const getNodeListing = async (queryParams) => {
     const limit = Number(queryParams.limit) || 10;
     const skip = (page - 1) * limit;
 
-
     const chains = await db.collection("chains").find({}).toArray();
     let allNodes = [];
     let nodesSeen = 0;
@@ -200,7 +203,7 @@ const getNodeListing = async (queryParams) => {
         message: "Success",
         nodes: allNodes,
         page: page,
-      })
+      }),
     };
   } catch (error) {
     console.error("an error occured:", error);
@@ -214,3 +217,55 @@ const getNodeListing = async (queryParams) => {
   }
 };
 
+const updateNodeStatus = async (body) => {
+  const client = await DBConn();
+  const db = client.db("10D");
+
+  try {
+    const { chainId, nodeId } = body;
+    const chain = await db
+      .collection("chains")
+      .findOne({ _id: new ObjectId(chainId) });
+    if (!chain) {
+      return {
+        statusCode: StatusCodes.CONFLICT,
+        body: JSON.stringify({ message: "Chain not found!" }),
+      };
+    }
+
+    const nodeCollectionName = `treeNodes${chain.name}`;
+    const node = await db
+      .collection(nodeCollectionName)
+      .findOne({ _id: new ObjectId(nodeId) });
+    if (!node) {
+      return {
+        statusCode: StatusCodes.NOT_FOUND,
+        body: JSON.stringify({ message: "Node not found!" }),
+      };
+    }
+
+    const updatedNode = await db
+      .collection(nodeCollectionName)
+      .findOneAndUpdate(
+        { _id: new ObjectId(nodeId) },
+        { $set: { isDeleted: true } },
+        { returnOriginal: false }
+      );
+
+    client.close();
+
+    return {
+      statusCode: StatusCodes.OK,
+      body: JSON.stringify({ message: "Success", updatedNode }),
+    };
+  } catch (error) {
+    console.error("an error occured", error);
+    return {
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      body: JSON.stringify({
+        message: "something went wrong",
+        error: error.message,
+      }),
+    };
+  }
+};

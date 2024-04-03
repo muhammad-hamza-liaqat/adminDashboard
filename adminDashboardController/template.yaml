@@ -38,6 +38,11 @@ Resources:
           Properties:
             Path: /getNodeListing
             Method: get
+        updateNodeStatus:
+          Type: Api
+          Properties: 
+            Path: /updateNodeStatus
+            Method: patch
 
 
 Outputs:
