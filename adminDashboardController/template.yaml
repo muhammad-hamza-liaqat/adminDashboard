@@ -33,6 +33,11 @@ Resources:
           Properties:
             Path: /adminAnalytics
             Method: get
+        getNodeListing:
+          Type: Api
+          Properties:
+            Path: /getNodeListing
+            Method: get
 
 
 Outputs:

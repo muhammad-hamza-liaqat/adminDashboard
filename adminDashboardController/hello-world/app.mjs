@@ -15,8 +15,10 @@ export const lambdaHandler = async (event) => {
       case "GET":
         if (path === "/searchNodes") {
           return await searchNodes(queryParams);
-        } else if (path === "/adminAnalytics"){
-          return await adminAnalytics(queryParams)
+        } else if (path === "/adminAnalytics") {
+          return await adminAnalytics(queryParams);
+        } else if (path === "/getNodeListing") {
+          return await getNodeListing(queryParams);
         }
 
       default:
@@ -117,7 +119,6 @@ const adminAnalytics = async (queryParams) => {
   const client = await DBConn();
   const db = client.db("10D");
   try {
-
     const chains = await db.collection("chains").find({}).toArray();
     let totalChainInvestment = 0;
     let totalNodesCount = 0;
@@ -160,3 +161,56 @@ const adminAnalytics = async (queryParams) => {
     };
   }
 };
+
+const getNodeListing = async (queryParams) => {
+  const client = await DBConn();
+  const db = client.db("10D");
+  try {
+    const page = Number(queryParams.page) || 1;
+    const limit = Number(queryParams.limit) || 10;
+    const skip = (page - 1) * limit;
+
+
+    const chains = await db.collection("chains").find({}).toArray();
+    let allNodes = [];
+    let nodesSeen = 0;
+    let totalNodes = 0;
+
+    for (const chain of chains) {
+      const collectionName = `treeNodes${chain.name}`;
+      const count = await db.collection(collectionName).countDocuments();
+      totalNodes += count;
+
+      const nodes = await db
+        .collection(collectionName)
+        .find({}, { projection: { nodeId: 1, totalMembers: 1, level: 1 } })
+        .skip(skip - nodesSeen >= 0 ? skip - nodesSeen : 0)
+        .limit(limit - allNodes.length)
+        .toArray();
+      nodesSeen += nodes.length;
+      allNodes = allNodes.concat(nodes);
+      if (allNodes.length >= limit) break;
+    }
+
+    client.close();
+
+    return {
+      statusCode: StatusCodes.OK,
+      body: JSON.stringify({
+        message: "Success",
+        nodes: allNodes,
+        page: page,
+      })
+    };
+  } catch (error) {
+    console.error("an error occured:", error);
+    return {
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      body: JSON.stringify({
+        message: "something went wrong!",
+        error: error.message,
+      }),
+    };
+  }
+};
+
